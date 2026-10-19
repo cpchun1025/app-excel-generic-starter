@@ -1,0 +1,1 @@
+"""Explicitly constrained workbook adapters."""

@@ -1,0 +1,141 @@
+# Demonstration only: all paths, workbook names, macros, and addresses are fake.
+# These jobs validate but remain fake-execution-only: their plugin, copy,
+# macro, and email operations are not implemented. For a real Phase 2 job,
+# use jobs.phase2.yaml. Generate sample workbooks separately; the fake .xlsm names
+# below are placeholders for user-supplied trusted macro-enabled fixtures.
+schema_version: 1
+
+jobs:
+  fake-python-only:
+    inputs:
+      source: ../examples/workbooks/fake_sales.xlsx
+    workbook:
+      base: source
+      output: ../examples/output/fake_sales_clean.xlsx
+      adapter: direct_xlsx
+    steps:
+      - id: clean-sales
+        type: python
+        plugin: sample.clean_sales
+        options:
+          remove_blank_rows: true
+          normalize_headers: true
+      - id: validate-sales-output
+        type: validate
+        checks:
+          - type: file_exists
+          - type: sheet_exists
+            sheet: Sales
+    email:
+      enabled: false
+
+  fake-macro-only:
+    inputs:
+      template: ../examples/workbooks/fake_month_end.xlsm
+      source_data: ../examples/workbooks/fake_month_end_data.xlsx
+    workbook:
+      base: template
+      output: ../examples/output/fake_month_end_result.xlsm
+      adapter: excel_desktop
+    steps:
+      - id: copy-month-end-input
+        type: copy
+        source:
+          workbook: source_data
+          sheet: FakeData
+          range: A1:C12
+        destination:
+          workbook: output
+          sheet: Input
+          range: A1
+        mode: values
+      - id: run-month-end
+        type: macro
+        workbook: output
+        name: FakeMonthEnd.Calculate
+        args: []
+      - id: validate-month-end-output
+        type: validate
+        checks:
+          - type: file_exists
+          - type: sheet_exists
+            sheet: Summary
+    email:
+      enabled: false
+
+  fake-python-then-macro:
+    inputs:
+      template: ../examples/workbooks/fake_forecast_template.xlsm
+      source_data: ../examples/workbooks/fake_forecast_inputs.xlsx
+    workbook:
+      base: template
+      output: ../examples/output/fake_forecast_result.xlsm
+      adapter: excel_desktop
+    steps:
+      - id: copy-forecast-inputs
+        type: copy
+        source:
+          workbook: source_data
+          sheet: ForecastInput
+          range: A1:D20
+        destination:
+          workbook: output
+          sheet: ForecastInput
+          range: A1
+        mode: values
+      - id: prepare-forecast
+        type: python
+        plugin: sample.prepare_forecast
+        options:
+          scenario: demonstration
+          fill_missing_periods: true
+      - id: calculate-forecast
+        type: macro
+        workbook: output
+        name: ForecastModule.Recalculate
+        args:
+          - demonstration
+      - id: validate-forecast-output
+        type: validate
+        checks:
+          - type: file_exists
+          - type: sheet_exists
+            sheet: Summary
+          - type: range_nonempty
+            sheet: Summary
+            range: A1:C8
+      - id: prepare-forecast-email
+        type: email
+    email:
+      enabled: true
+      send: false
+      smtp:
+        host: smtp.invalid.example
+        port: 587
+        tls: starttls
+        sender: automation@example.invalid
+        recipients:
+          - report-reader@example.invalid
+        username: ${EXCEL_SMTP_USER}
+        password: ${EXCEL_SMTP_PASSWORD}
+      subject: "Fake forecast report: {job_id}"
+      body: "Demonstration run {run_id} completed. No real workbook data is used."
+      delivery_key: "{job_id}:{scheduled_occurrence}"
+      outputs:
+        - type: html_table
+          sheet: Summary
+          range: A1:C8
+          placement: body
+        - type: range_image
+          sheet: Summary
+          range: A1:C8
+          placement: attachment
+        - type: html_attachment
+          sheet: Summary
+          range: A1:C8
+          placement: attachment
+        - type: workbook
+          placement: attachment
+    # The email step is last and follows output validation. This example
+    # prepares a message only; it never contacts SMTP. Do not supply real
+    # credentials or change send to true for this sample.

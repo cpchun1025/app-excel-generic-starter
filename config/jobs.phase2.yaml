@@ -1,0 +1,28 @@
+# Real Phase 2 example. Generate the non-sensitive input with generate-samples.
+# No plugins, copy mappings, VBA, rendering, or email steps are involved.
+schema_version: 1
+jobs:
+  plain-xlsx-check:
+    inputs:
+      source: ../examples/workbooks/phase2_sample.xlsx
+    workbook:
+      base: source
+      output: ../examples/output/phase2_result.xlsx
+      adapter: direct_xlsx
+    steps:
+      - id: validate-plain-output
+        type: validate
+        checks:
+          - type: file_exists
+          - type: sheet_exists
+            sheet: Sample
+          - type: range_nonempty
+            sheet: Sample
+            range: A1:C3
+          - type: range_equals
+            sheet: Sample
+            range: A1:C3
+            expected:
+              - [Item, Quantity, Active]
+              - [Fake pencils, 12, true]
+              - [Fake notebooks, 5, false]
